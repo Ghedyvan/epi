@@ -1,10 +1,10 @@
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/button";
 import Image from "next/image";
 
 export default function Home() {
   return (
     <div>
-      <Button>Hero UI Button</Button>
+      <Button color="primary">Hero UI Button</Button>
     </div>
   );
 }
