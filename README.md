@@ -1,36 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+## PWA · Gestão de EPIs e Compliance
 
-## Getting Started
+Aplicação Next.js com HeroUI e Tailwind que demonstra um fluxo completo de gestão de estoque e entrega de EPIs para empresas parceiras. O projeto inclui landing page, autenticação fictícia e um dashboard rico com dados simulados.
 
-First, run the development server:
+### Funcionalidades
+
+- Entrada controlada por login com validação básica e opção de manter sessão
+- Painel principal com visão geral de entregas, estoque crítico e prazos de auditoria
+- Tabelas de colaboradores, fornecedores homologados, fichas de controle, empresas e setores
+- Fila de entregas com confirmação de recebimento diretamente pelo gestor
+- Indicadores visuais (chips, progressos, switches) para decisões rápidas
+- Persistência local das entregas com sincronização automática quando a conexão voltar
+- Service worker para cache offline e manifesto configurado para instalação como aplicativo
+
+### Credenciais demo
+
+Use as credenciais abaixo para acessar o dashboard:
+
+- **E-mail:** `gestor@empresa.com`
+- **Senha:** `seguranca123`
+
+A sessão é armazenada no `localStorage` quando a opção "Continuar conectado" estiver marcada.
+
+### Como executar
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abra [http://localhost:3000](http://localhost:3000) para acessar a landing page. Clique em **Acessar painel seguro** e efetue login com as credenciais demo.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+### Fluxo de navegação
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **Landing (`/`)** – destaque do PWA e botão para login
+2. **Login (`/login`)** – formulário com validação e persistência opcional da sessão
+3. **Dashboard (`/dashboard`)** – monitoramento de entregas, estoque e cadastros
 
-## Learn More
+### Verificação de entrega
 
-To learn more about Next.js, take a look at the following resources:
+Na seção **Fila de Entregas de EPIs**, utilize o switch "Entrega confirmada" para registrar que o material foi entregue ao colaborador. As métricas de progresso são atualizadas em tempo real conforme os itens são marcados como concluídos.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Modo offline e sincronização
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Os estados de entrega ficam salvos no `localStorage` (`pwa-deliveries`).
+- A fila de ações pendentes é guardada em `pwa-sync-queue` e é enviada automaticamente quando o navegador voltar a ficar online.
+- O cabeçalho e a fila exibem chips de status para indicar quando você está offline, quantas ações aguardam sincronização e a última sincronização concluída.
+- O botão **Sincronizar pendências** força o envio manual sempre que houver conexão.
 
-## Deploy on Vercel
+### Instalar como PWA
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Acesse a aplicação em um navegador compatível (Chrome, Edge, Safari mobile).
+2. Utilize a opção **Adicionar à tela inicial** / **Install app** oferecida pelo navegador.
+3. O manifesto (`app/manifest.json`) e o service worker (`public/sw.js`) garantem tema claro, splash screen e cache básico para navegação offline.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Tecnologias
+
+- [Next.js](https://nextjs.org) 15 (App Router)
+- [React](https://react.dev) 19
+- [HeroUI](https://www.heroui.com/) para componentes UI acessíveis
+- [Tailwind CSS](https://tailwindcss.com) 4 para utilitários de estilo
+
+### Scripts úteis
+
+- `npm run dev` – inicia o servidor de desenvolvimento
+- `npm run build` – gera a build de produção
+- `npm run start` – executa a build gerada
+- `npm run lint` – roda as checagens de lint
+

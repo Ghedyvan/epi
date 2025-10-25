@@ -1,0 +1,17 @@
+{
+  "name": "PWA Gestão de EPIs",
+  "short_name": "EPIs PWA",
+  "description": "Progressive Web App para controle de estoque e entrega de EPIs com suporte offline.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ]
+}
