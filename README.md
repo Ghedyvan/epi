@@ -30,6 +30,16 @@ npm run dev
 
 Abra [http://localhost:3000](http://localhost:3000) para acessar a landing page. Clique em **Acessar painel seguro** e efetue login com as credenciais demo.
 
+### Configurar Supabase (Opcional)
+
+O projeto funciona 100% offline usando IndexedDB. Para habilitar sincronização em nuvem:
+
+1. Crie uma conta em [Supabase](https://supabase.com)
+2. Siga as instruções em [SUPABASE_SETUP.md](./SUPABASE_SETUP.md)
+3. Configure as variáveis de ambiente no `.env.local`
+
+Sem Supabase configurado, o app continua funcional em modo offline puro.
+
 ### Fluxo de navegação
 
 1. **Landing (`/`)** – destaque do PWA e botão para login
@@ -42,10 +52,12 @@ Na seção **Fila de Entregas de EPIs**, utilize o switch "Entrega confirmada" p
 
 ### Modo offline e sincronização
 
-- Os estados de entrega ficam salvos no `localStorage` (`pwa-deliveries`).
-- A fila de ações pendentes é guardada em `pwa-sync-queue` e é enviada automaticamente quando o navegador voltar a ficar online.
-- O cabeçalho e a fila exibem chips de status para indicar quando você está offline, quantas ações aguardam sincronização e a última sincronização concluída.
-- O botão **Sincronizar pendências** força o envio manual sempre que houver conexão.
+- Os dados são armazenados localmente no **IndexedDB** do navegador via biblioteca `idb`
+- A fila de operações pendentes é gerenciada automaticamente pelo `syncManager`
+- Quando online e o Supabase estiver configurado, a **sincronização automática** ocorre a cada 60 segundos
+- O cabeçalho exibe status de conexão e botão de sincronização manual
+- **Estratégia de conflito**: Last-Write-Wins baseado no campo `updated_at`
+- O PWA funciona 100% offline mesmo sem Supabase configurado
 
 ### Instalar como PWA
 
@@ -59,6 +71,8 @@ Na seção **Fila de Entregas de EPIs**, utilize o switch "Entrega confirmada" p
 - [React](https://react.dev) 19
 - [HeroUI](https://www.heroui.com/) para componentes UI acessíveis
 - [Tailwind CSS](https://tailwindcss.com) 4 para utilitários de estilo
+- [IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API) via [idb](https://github.com/jakearchibald/idb) para armazenamento offline
+- [Supabase](https://supabase.com) para banco de dados PostgreSQL em nuvem e sincronização
 
 ### Scripts úteis
 

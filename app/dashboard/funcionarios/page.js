@@ -1,73 +1,198 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
+  Button,
   Card,
   CardBody,
   CardHeader,
   Chip,
   Divider,
+  Input,
+  Modal,
+  ModalBody,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  Spinner,
   Table,
   TableBody,
   TableCell,
   TableColumn,
   TableHeader,
   TableRow,
+  Textarea,
+  useDisclosure,
 } from "@heroui/react";
-
-const EMPLOYEES = [
-  {
-    id: "col-01",
-    nome: "João Silva",
-    dataAdmissao: "14/03/2019",
-    cargo: "Supervisor de Campo",
-    departamento: "Operações",
-    examePeriodico: "18/09/2025",
-    proximoExame: "18/09/2026",
-    observacoes: "Treinamento NR-35 atualizado.",
-  },
-  {
-    id: "col-02",
-    nome: "Mariana Campos",
-    dataAdmissao: "02/07/2021",
-    cargo: "Analista de Logística",
-    departamento: "Logística",
-    examePeriodico: "09/08/2025",
-    proximoExame: "09/08/2026",
-    observacoes: "Revisar reciclagem de empilhadeira.",
-  },
-  {
-    id: "col-03",
-    nome: "Carlos Ribeiro",
-    dataAdmissao: "27/11/2017",
-    cargo: "Técnico de Manutenção",
-    departamento: "Manutenção",
-    examePeriodico: "22/10/2025",
-    proximoExame: "22/10/2026",
-    observacoes: "Apto para trabalho em altura.",
-  },
-  {
-    id: "col-04",
-    nome: "Ana Paula Souza",
-    dataAdmissao: "15/01/2023",
-    cargo: "Assistente de Almoxarifado",
-    departamento: "Almoxarifado",
-    examePeriodico: "03/07/2025",
-    proximoExame: "03/01/2026",
-    observacoes: "Aguardar agendamento de audiometria.",
-  },
-  {
-    id: "col-05",
-    nome: "Rafael Gomes",
-    dataAdmissao: "05/05/2020",
-    cargo: "Operador Industrial",
-    departamento: "Produção",
-    examePeriodico: "30/06/2025",
-    proximoExame: "30/06/2026",
-    observacoes: "Monitorar índice de absenteísmo pós turno noturno.",
-  },
-];
+import { Icon } from "@iconify/react";
+import { supabase } from "../../../lib/supabase";
 
 export default function FuncionariosPage() {
+  const [funcionarios, setFuncionarios] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  
+  // Modal states
+  const { isOpen, onOpen, onClose, onOpenChange } = useDisclosure();
+  const [modalMode, setModalMode] = useState("create");
+  const [selectedFuncionario, setSelectedFuncionario] = useState(null);
+  
+  // Form states
+  const [formData, setFormData] = useState({
+    nome: "",
+    data_admissao: "",
+    cargo: "",
+    departamento: "",
+    exame_periodico: "",
+    proximo_exame: "",
+    observacoes: "",
+  });
+
+  // Carregar funcionários
+  const loadFuncionarios = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data, error: fetchError } = await supabase
+        .from("funcionarios")
+        .select("*")
+        .order("nome", { ascending: true });
+
+      if (fetchError) throw fetchError;
+
+      setFuncionarios(data || []);
+    } catch (err) {
+      console.error("Erro ao carregar funcionários:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadFuncionarios();
+  }, []);
+
+  // Abrir modal para criar
+  const handleCreate = () => {
+    setModalMode("create");
+    setSelectedFuncionario(null);
+    setFormData({
+      nome: "",
+      data_admissao: "",
+      cargo: "",
+      departamento: "",
+      exame_periodico: "",
+      proximo_exame: "",
+      observacoes: "",
+    });
+    onOpen();
+  };
+
+  // Abrir modal para editar
+  const handleEdit = (funcionario) => {
+    setModalMode("edit");
+    setSelectedFuncionario(funcionario);
+    setFormData({
+      nome: funcionario.nome || "",
+      data_admissao: funcionario.data_admissao || "",
+      cargo: funcionario.cargo || "",
+      departamento: funcionario.departamento || "",
+      exame_periodico: funcionario.exame_periodico || "",
+      proximo_exame: funcionario.proximo_exame || "",
+      observacoes: funcionario.observacoes || "",
+    });
+    onOpen();
+  };
+
+  // Salvar (criar ou editar)
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+
+      // Validações básicas
+      if (!formData.nome || !formData.cargo || !formData.departamento) {
+        alert("Preencha os campos obrigatórios: Nome, Cargo e Departamento");
+        return;
+      }
+
+      if (modalMode === "create") {
+        // Criar novo
+        const { error: insertError } = await supabase
+          .from("funcionarios")
+          .insert([
+            {
+              id: `col-${Date.now()}`,
+              ...formData,
+            },
+          ]);
+
+        if (insertError) throw insertError;
+      } else {
+        // Atualizar existente
+        const { error: updateError } = await supabase
+          .from("funcionarios")
+          .update(formData)
+          .eq("id", selectedFuncionario.id);
+
+        if (updateError) throw updateError;
+      }
+
+      // Recarregar lista
+      await loadFuncionarios();
+      onClose();
+    } catch (err) {
+      console.error("Erro ao salvar funcionário:", err);
+      setError(err.message);
+      alert(`Erro ao salvar: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Deletar
+  const handleDelete = async (funcionario) => {
+    if (!confirm(`Tem certeza que deseja excluir ${funcionario.nome}?`)) {
+      return;
+    }
+
+    try {
+      setError(null);
+
+      const { error: deleteError } = await supabase
+        .from("funcionarios")
+        .delete()
+        .eq("id", funcionario.id);
+
+      if (deleteError) throw deleteError;
+
+      // Recarregar lista
+      await loadFuncionarios();
+    } catch (err) {
+      console.error("Erro ao deletar funcionário:", err);
+      setError(err.message);
+      alert(`Erro ao deletar: ${err.message}`);
+    }
+  };
+
+  // Update form field
+  const updateField = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  if (loading) {
+    return (
+      <Card className="border border-slate-200 bg-white shadow-sm">
+        <CardBody className="flex items-center justify-center p-12">
+          <Spinner size="lg" label="Carregando funcionários..." />
+        </CardBody>
+      </Card>
+    );
+  }
+
   return (
     <>
       <Card className="border border-slate-200 bg-white shadow-sm">
@@ -78,34 +203,169 @@ export default function FuncionariosPage() {
               Base de dados com informações ocupacionais e exames periódicos exigidos pela NR-07.
             </p>
           </div>
-          <Chip>{EMPLOYEES.length} colaboradores</Chip>
+          <div className="flex items-center gap-2">
+            <Chip>{funcionarios.length} colaboradores</Chip>
+            <Button
+              color="primary"
+              startContent={<Icon icon="solar:user-plus-bold" width={20} />}
+              onPress={handleCreate}
+            >
+              Adicionar
+            </Button>
+          </div>
         </CardHeader>
         <Divider className="border-slate-200" />
+
+        {error && (
+          <CardBody>
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+              <strong>Erro:</strong> {error}
+            </div>
+          </CardBody>
+        )}
+
         <Table removeWrapper className="text-sm">
           <TableHeader>
-            <TableColumn>Nome</TableColumn>
-            <TableColumn>Data de admissão</TableColumn>
-            <TableColumn>Cargo</TableColumn>
-            <TableColumn>Departamento</TableColumn>
-            <TableColumn>Último exame periódico</TableColumn>
-            <TableColumn>Próximo exame</TableColumn>
-            <TableColumn>Observações</TableColumn>
+            <TableColumn>NOME</TableColumn>
+            <TableColumn>DATA DE ADMISSÃO</TableColumn>
+            <TableColumn>CARGO</TableColumn>
+            <TableColumn>DEPARTAMENTO</TableColumn>
+            <TableColumn>ÚLTIMO EXAME</TableColumn>
+            <TableColumn>PRÓXIMO EXAME</TableColumn>
+            <TableColumn>OBSERVAÇÕES</TableColumn>
+            <TableColumn>AÇÕES</TableColumn>
           </TableHeader>
           <TableBody emptyContent="Nenhum colaborador cadastrado">
-            {EMPLOYEES.map((employee) => (
-              <TableRow key={employee.id}>
-                <TableCell className="font-medium text-slate-900">{employee.nome}</TableCell>
-                <TableCell>{employee.dataAdmissao}</TableCell>
-                <TableCell>{employee.cargo}</TableCell>
-                <TableCell>{employee.departamento}</TableCell>
-                <TableCell>{employee.examePeriodico}</TableCell>
-                <TableCell>{employee.proximoExame}</TableCell>
-                <TableCell>{employee.observacoes}</TableCell>
+            {funcionarios.map((funcionario) => (
+              <TableRow key={funcionario.id}>
+                <TableCell className="font-medium text-slate-900">
+                  {funcionario.nome}
+                </TableCell>
+                <TableCell>{funcionario.data_admissao || "—"}</TableCell>
+                <TableCell>{funcionario.cargo}</TableCell>
+                <TableCell>{funcionario.departamento}</TableCell>
+                <TableCell>{funcionario.exame_periodico || "—"}</TableCell>
+                <TableCell>{funcionario.proximo_exame || "—"}</TableCell>
+                <TableCell className="max-w-xs truncate">
+                  {funcionario.observacoes || "—"}
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button
+                      isIconOnly
+                      size="sm"
+                      variant="flat"
+                      color="primary"
+                      onPress={() => handleEdit(funcionario)}
+                    >
+                      <Icon icon="solar:pen-bold" width={16} />
+                    </Button>
+                    <Button
+                      isIconOnly
+                      size="sm"
+                      variant="flat"
+                      color="danger"
+                      onPress={() => handleDelete(funcionario)}
+                    >
+                      <Icon icon="solar:trash-bin-trash-bold" width={16} />
+                    </Button>
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </Card>
+
+      {/* Modal de Criar/Editar */}
+      <Modal
+        isOpen={isOpen}
+        onOpenChange={onOpenChange}
+        size="2xl"
+        scrollBehavior="inside"
+      >
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader className="flex flex-col gap-1">
+                {modalMode === "create" ? "Adicionar Funcionário" : "Editar Funcionário"}
+              </ModalHeader>
+              <ModalBody>
+                <div className="flex flex-col gap-4">
+                  <Input
+                    label="Nome completo"
+                    placeholder="Ex: João Silva"
+                    value={formData.nome}
+                    onValueChange={(value) => updateField("nome", value)}
+                    isRequired
+                  />
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Input
+                      label="Data de admissão"
+                      placeholder="DD/MM/AAAA"
+                      value={formData.data_admissao}
+                      onValueChange={(value) => updateField("data_admissao", value)}
+                    />
+
+                    <Input
+                      label="Cargo"
+                      placeholder="Ex: Supervisor de Campo"
+                      value={formData.cargo}
+                      onValueChange={(value) => updateField("cargo", value)}
+                      isRequired
+                    />
+                  </div>
+
+                  <Input
+                    label="Departamento"
+                    placeholder="Ex: Operações"
+                    value={formData.departamento}
+                    onValueChange={(value) => updateField("departamento", value)}
+                    isRequired
+                  />
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Input
+                      label="Último exame periódico"
+                      placeholder="DD/MM/AAAA"
+                      value={formData.exame_periodico}
+                      onValueChange={(value) => updateField("exame_periodico", value)}
+                    />
+
+                    <Input
+                      label="Próximo exame"
+                      placeholder="DD/MM/AAAA"
+                      value={formData.proximo_exame}
+                      onValueChange={(value) => updateField("proximo_exame", value)}
+                    />
+                  </div>
+
+                  <Textarea
+                    label="Observações"
+                    placeholder="Notas adicionais sobre o funcionário"
+                    value={formData.observacoes}
+                    onValueChange={(value) => updateField("observacoes", value)}
+                    minRows={3}
+                  />
+                </div>
+              </ModalBody>
+              <ModalFooter>
+                <Button variant="light" onPress={onClose}>
+                  Cancelar
+                </Button>
+                <Button
+                  color="primary"
+                  onPress={handleSave}
+                  isLoading={saving}
+                >
+                  {modalMode === "create" ? "Adicionar" : "Salvar"}
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
     </>
   );
 }
