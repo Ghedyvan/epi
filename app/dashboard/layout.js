@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Avatar, Button, Chip, Divider } from "@heroui/react";
-import { Icon } from "@iconify/react";
+import SafeIcon from "../../components/SafeIcon";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/dashboard", icon: "solar:home-2-line-duotone" },
@@ -20,11 +20,13 @@ export default function DashboardLayout({ children }) {
   const pathname = usePathname();
   const [user, setUser] = useState(null);
   const [hydrated, setHydrated] = useState(false);
+  const [isValidating, setIsValidating] = useState(true);
 
   useEffect(() => {
-    const session = typeof window !== "undefined" ? localStorage.getItem("pwa-auth") : null;
+    const session = localStorage.getItem("pwa-auth");
 
     if (!session) {
+      setIsValidating(false);
       router.replace("/login");
       return;
     }
@@ -32,13 +34,13 @@ export default function DashboardLayout({ children }) {
     try {
       const parsed = JSON.parse(session);
       setUser(parsed);
+      setIsValidating(false);
+      setHydrated(true);
     } catch (error) {
       console.error("Sessão inválida", error);
       localStorage.removeItem("pwa-auth");
+      setIsValidating(false);
       router.replace("/login");
-      return;
-    } finally {
-      setHydrated(true);
     }
   }, [router]);
 
@@ -52,7 +54,7 @@ export default function DashboardLayout({ children }) {
     router.replace("/login");
   };
 
-  if (!hydrated) {
+  if (isValidating) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-100 text-slate-900">
         <div className="rounded-lg border border-slate-200 bg-white px-8 py-6 shadow-md">
@@ -60,6 +62,10 @@ export default function DashboardLayout({ children }) {
         </div>
       </main>
     );
+  }
+
+  if (!hydrated || !user) {
+    return null; // Redirecionando para login
   }
 
   return (
@@ -89,7 +95,7 @@ export default function DashboardLayout({ children }) {
                 }`}
               >
                 <span className="flex items-center gap-2">
-                  <Icon icon={item.icon} className="text-lg" />
+                  <SafeIcon icon={item.icon} className="text-lg" />
                   {item.label}
                 </span>
               </Link>

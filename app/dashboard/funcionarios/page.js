@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Button,
   Card,
@@ -25,13 +25,15 @@ import {
   useDisclosure,
 } from "@heroui/react";
 import { Icon } from "@iconify/react";
-import { supabase } from "../../../lib/supabase";
+import { useData, useAutoSync } from "../../../hooks/useData";
+import { STORES } from "../../../lib/db/indexedDB";
 
 export default function FuncionariosPage() {
-  const [funcionarios, setFuncionarios] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Usar hook useData para operações offline-first
+  const { data: funcionarios, loading, error, upsert, remove } = useData(STORES.FUNCIONARIOS);
+  const { isOnline } = useAutoSync(true);
+  
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
   
   // Modal states
   const { isOpen, onOpen, onClose, onOpenChange } = useDisclosure();
@@ -41,39 +43,13 @@ export default function FuncionariosPage() {
   // Form states
   const [formData, setFormData] = useState({
     nome: "",
-    data_admissao: "",
+    dataAdmissao: "",
     cargo: "",
     departamento: "",
-    exame_periodico: "",
-    proximo_exame: "",
+    examePeriodico: "",
+    proximoExame: "",
     observacoes: "",
   });
-
-  // Carregar funcionários
-  const loadFuncionarios = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const { data, error: fetchError } = await supabase
-        .from("funcionarios")
-        .select("*")
-        .order("nome", { ascending: true });
-
-      if (fetchError) throw fetchError;
-
-      setFuncionarios(data || []);
-    } catch (err) {
-      console.error("Erro ao carregar funcionários:", err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadFuncionarios();
-  }, []);
 
   // Abrir modal para criar
   const handleCreate = () => {
@@ -81,11 +57,11 @@ export default function FuncionariosPage() {
     setSelectedFuncionario(null);
     setFormData({
       nome: "",
-      data_admissao: "",
+      dataAdmissao: "",
       cargo: "",
       departamento: "",
-      exame_periodico: "",
-      proximo_exame: "",
+      examePeriodico: "",
+      proximoExame: "",
       observacoes: "",
     });
     onOpen();
@@ -97,11 +73,11 @@ export default function FuncionariosPage() {
     setSelectedFuncionario(funcionario);
     setFormData({
       nome: funcionario.nome || "",
-      data_admissao: funcionario.data_admissao || "",
+      dataAdmissao: funcionario.dataAdmissao || "",
       cargo: funcionario.cargo || "",
       departamento: funcionario.departamento || "",
-      exame_periodico: funcionario.exame_periodico || "",
-      proximo_exame: funcionario.proximo_exame || "",
+      examePeriodico: funcionario.examePeriodico || "",
+      proximoExame: funcionario.proximoExame || "",
       observacoes: funcionario.observacoes || "",
     });
     onOpen();
@@ -110,43 +86,31 @@ export default function FuncionariosPage() {
   // Salvar (criar ou editar)
   const handleSave = async () => {
     try {
-      setSaving(true);
-      setError(null);
-
       // Validações básicas
       if (!formData.nome || !formData.cargo || !formData.departamento) {
         alert("Preencha os campos obrigatórios: Nome, Cargo e Departamento");
         return;
       }
 
-      if (modalMode === "create") {
-        // Criar novo
-        const { error: insertError } = await supabase
-          .from("funcionarios")
-          .insert([
-            {
-              id: `col-${Date.now()}`,
-              ...formData,
-            },
-          ]);
+      setSaving(true);
+      console.log("Salvando funcionário:", formData);
 
-        if (insertError) throw insertError;
-      } else {
-        // Atualizar existente
-        const { error: updateError } = await supabase
-          .from("funcionarios")
-          .update(formData)
-          .eq("id", selectedFuncionario.id);
+      // Preparar dados para salvar
+      const dataToSave = {
+        ...formData,
+        id: modalMode === "create" ? `col-${Date.now()}` : selectedFuncionario.id,
+      };
 
-        if (updateError) throw updateError;
-      }
+      console.log("Dados preparados:", dataToSave);
 
-      // Recarregar lista
-      await loadFuncionarios();
+      // Usar hook useData para salvar (funciona offline)
+      const result = await upsert(dataToSave);
+      console.log("Resultado do upsert:", result);
+
+      // Fechar modal - a lista é atualizada automaticamente pelo hook
       onClose();
     } catch (err) {
       console.error("Erro ao salvar funcionário:", err);
-      setError(err.message);
       alert(`Erro ao salvar: ${err.message}`);
     } finally {
       setSaving(false);
@@ -160,20 +124,10 @@ export default function FuncionariosPage() {
     }
 
     try {
-      setError(null);
-
-      const { error: deleteError } = await supabase
-        .from("funcionarios")
-        .delete()
-        .eq("id", funcionario.id);
-
-      if (deleteError) throw deleteError;
-
-      // Recarregar lista
-      await loadFuncionarios();
+      // Usar hook useData para deletar (funciona offline)
+      await remove(funcionario.id);
     } catch (err) {
       console.error("Erro ao deletar funcionário:", err);
-      setError(err.message);
       alert(`Erro ao deletar: ${err.message}`);
     }
   };
@@ -204,6 +158,21 @@ export default function FuncionariosPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {/* Indicador de status online/offline */}
+            <Chip
+              color={isOnline ? "success" : "warning"}
+              variant="flat"
+              size="sm"
+              startContent={
+                <Icon 
+                  icon={isOnline ? "solar:wifi-bold" : "solar:wifi-off-bold"} 
+                  width={16} 
+                />
+              }
+            >
+              {isOnline ? "Online" : "Offline"}
+            </Chip>
+            
             <Chip>{funcionarios.length} colaboradores</Chip>
             <Button
               color="primary"
@@ -224,7 +193,7 @@ export default function FuncionariosPage() {
           </CardBody>
         )}
 
-        <Table removeWrapper className="text-sm">
+        <Table removeWrapper className="text-sm overflow-x-auto">
           <TableHeader>
             <TableColumn>NOME</TableColumn>
             <TableColumn>DATA DE ADMISSÃO</TableColumn>
@@ -241,11 +210,11 @@ export default function FuncionariosPage() {
                 <TableCell className="font-medium text-slate-900">
                   {funcionario.nome}
                 </TableCell>
-                <TableCell>{funcionario.data_admissao || "—"}</TableCell>
+                <TableCell>{funcionario.dataAdmissao || "—"}</TableCell>
                 <TableCell>{funcionario.cargo}</TableCell>
                 <TableCell>{funcionario.departamento}</TableCell>
-                <TableCell>{funcionario.exame_periodico || "—"}</TableCell>
-                <TableCell>{funcionario.proximo_exame || "—"}</TableCell>
+                <TableCell>{funcionario.examePeriodico || "—"}</TableCell>
+                <TableCell>{funcionario.proximoExame || "—"}</TableCell>
                 <TableCell className="max-w-xs truncate">
                   {funcionario.observacoes || "—"}
                 </TableCell>
@@ -302,10 +271,11 @@ export default function FuncionariosPage() {
 
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <Input
+                      type="date"
                       label="Data de admissão"
                       placeholder="DD/MM/AAAA"
-                      value={formData.data_admissao}
-                      onValueChange={(value) => updateField("data_admissao", value)}
+                      value={formData.dataAdmissao}
+                      onValueChange={(value) => updateField("dataAdmissao", value)}
                     />
 
                     <Input
@@ -327,17 +297,19 @@ export default function FuncionariosPage() {
 
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <Input
+                    type="date"
                       label="Último exame periódico"
                       placeholder="DD/MM/AAAA"
-                      value={formData.exame_periodico}
-                      onValueChange={(value) => updateField("exame_periodico", value)}
+                      value={formData.examePeriodico}
+                      onValueChange={(value) => updateField("examePeriodico", value)}
                     />
 
                     <Input
+                    type="date"
                       label="Próximo exame"
                       placeholder="DD/MM/AAAA"
-                      value={formData.proximo_exame}
-                      onValueChange={(value) => updateField("proximo_exame", value)}
+                      value={formData.proximoExame}
+                      onValueChange={(value) => updateField("proximoExame", value)}
                     />
                   </div>
 

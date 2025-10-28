@@ -10,8 +10,8 @@ export const metadata = {
 
 export default function RootLayout({children}) {
   return (
-    <html lang="pt-br" className='light'>
-      <body>
+    <html lang="pt-br" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <Providers>
           {children}
         </Providers>

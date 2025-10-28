@@ -3,6 +3,21 @@
 import { useEffect, useState, useCallback } from "react";
 import * as idb from "../lib/db/indexedDB";
 import * as syncManager from "../lib/sync/syncManager";
+import * as supabase from "../lib/supabase";
+
+/**
+ * Helper: Mapeia store do IndexedDB para tabela do Supabase
+ */
+function getTableNameForStore(storeName) {
+  const mapping = {
+    [idb.STORES.FUNCIONARIOS]: supabase.TABLES.FUNCIONARIOS,
+    [idb.STORES.ESTOQUE]: supabase.TABLES.ESTOQUE,
+    [idb.STORES.FORNECEDORES]: supabase.TABLES.FORNECEDORES,
+    [idb.STORES.PRAZOS]: supabase.TABLES.PRAZOS,
+    [idb.STORES.LANCAMENTOS]: supabase.TABLES.LANCAMENTOS,
+  };
+  return mapping[storeName] || null;
+}
 
 /**
  * Hook para gerenciar dados de uma store do IndexedDB
@@ -23,17 +38,36 @@ export function useData(storeName) {
         setLoading(true);
         setError(null);
 
-        // Inicializar DB e fazer seed se necessário
+        // Inicializar DB
         if (!initialized) {
           await idb.initDB();
-          await idb.seedInitialData();
           setInitialized(true);
         }
 
-        // Carregar dados da store
+        // Tentar fazer pull do Supabase primeiro
+        const tableName = getTableNameForStore(storeName);
+        if (tableName) {
+          try {
+            await syncManager.pullFromSupabase(storeName, tableName);
+          } catch (pullError) {
+            console.warn(`Não foi possível fazer pull do Supabase:`, pullError);
+          }
+        }
+
+        // Carregar dados da store (agora com dados do Supabase se houver)
         const items = await idb.getAllItems(storeName);
-        if (mounted) {
-          setData(items);
+        
+        // Se não houver dados, fazer seed apenas como último recurso
+        if (items.length === 0 && !initialized) {
+          await idb.seedInitialData();
+          const seededItems = await idb.getAllItems(storeName);
+          if (mounted) {
+            setData(seededItems);
+          }
+        } else {
+          if (mounted) {
+            setData(items);
+          }
         }
       } catch (err) {
         console.error(`Erro ao carregar ${storeName}:`, err);
@@ -58,12 +92,18 @@ export function useData(storeName) {
   const upsert = useCallback(
     async (item) => {
       try {
+        // Verificar se o item já existe para determinar a operação correta
+        const existingItem = item.id ? await idb.getItemById(storeName, item.id) : null;
+        const operation = existingItem ? "update" : "create";
+        
+        console.log(`Operação detectada: ${operation}`, { item, existingItem });
+        
         const updated = await idb.upsertItem(storeName, item);
         
         // Adicionar à fila de sincronização
         await syncManager.queueOperation(
           storeName,
-          item.id ? "update" : "create",
+          operation,
           updated,
           updated.id
         );
